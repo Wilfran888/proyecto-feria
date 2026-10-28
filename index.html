@@ -54,7 +54,7 @@
     import { initializeApp } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-app.js";
     import { getDatabase, ref, set, update, onValue, onDisconnect } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-database.js";
 
-    // --- CONFIGURACIÓN DE FIREBASE DIRECTA ---
+    // --- CONFIGURACIÓN DE FIREBASE DIRECTA Y EXACTA ---
     const firebaseConfig = {
       apiKey: "AIzaSyBADzh7XPgGxMqG2b0TpieITZi5IUJdaGU",
       authDomain: "proyecto-feria-f5ece.firebaseapp.com",
@@ -70,7 +70,7 @@
     try {
       app = initializeApp(firebaseConfig);
       db = getDatabase(app);
-      console.log("Firebase Realtime Database inicializado correctamente.");
+      console.log("Firebase Realtime Database conectado.");
     } catch (err) {
       console.warn("Error al inicializar Firebase:", err);
     }
@@ -173,23 +173,44 @@
     }
     const sound = new SoundFX();
 
-    // --- LISTA DE FRASES ALEATORIAS PARA EL JUEGO ---
+    // --- LISTA DE FRASES SIMPLES, CLARAS Y DIRECTAS ---
     const PROMPTS = [
-      "Un gato astronauta comiendo pizza en gravedad cero",
-      "Un tiranosaurio rex intentando ponerse una corbata",
-      "Un pulpo chef cocinando fideos ramen para ocho personas",
-      "Un pingüino surfista huyendo de una foca con gafas de sol",
-      "Un extraterrestre asustado por un perrito chihuahua",
-      "Un oso perezoso ganando una carrera de fórmula 1",
-      "Un fantasma limpiando el polvo de su propia casa embrujada",
-      "Un ninja muy torpe tropezando con una cáscara de plátano",
-      "Un robot oxidado llorando bajo una sombrilla",
-      "Un tiburón con frenillos comiendo una paleta helada",
-      "Una jirafa en submarino mirando por el periscopio",
-      "Un dragón estornudando fuego en su pastel de cumpleaños",
-      "Un superhéroe gordo atascado en una cabina telefónica",
-      "Un caracol con cohetes propulsores rompiendo la barrera del sonido",
-      "Un conejito mago sacando a una persona de su sombrero"
+      "Un gato",
+      "Un perro",
+      "Una casa",
+      "Un sol",
+      "Una flor",
+      "Un árbol",
+      "Un coche",
+      "Un avión",
+      "Un barco",
+      "Una manzana",
+      "Una pizza",
+      "Un helado",
+      "Una guitarra",
+      "Un pez",
+      "Una bicicleta",
+      "Un reloj",
+      "Un sombrero",
+      "Una estrella",
+      "Una pelota",
+      "Un fantasma",
+      "Un paraguas",
+      "Una mariposa",
+      "Un cohete",
+      "Un dinosaurio",
+      "Una corona",
+      "Un corazón",
+      "Un teléfono",
+      "Un zapato",
+      "Una taza",
+      "Un lápiz",
+      "Un elefante",
+      "Un volcán",
+      "Una nube",
+      "Una tortuga",
+      "Un robot",
+      "Una hamburguesa"
     ];
 
     function getRandomPrompt() {
@@ -231,17 +252,14 @@
         verdict: null
       };
 
-      // Registrar sala en Firebase Realtime Database
       if (db) {
         set(ref(db, `rooms/${roomId}`), roomState).catch(err => console.error("Error al registrar sala:", err));
       }
 
-      // URL pública para el código QR
       const publicJoinUrl = window.location.origin + window.location.pathname + `?room=${roomId}`;
 
       appEl.innerHTML = `
         <div class="flex flex-col min-h-screen">
-          <!-- BARRA SUPERIOR -->
           <header class="bg-slate-900/90 border-b border-slate-800 px-6 py-4 backdrop-blur-md">
             <div class="max-w-7xl mx-auto flex items-center justify-between">
               <div class="flex items-center gap-3">
@@ -261,7 +279,6 @@
                 </div>
               </div>
 
-              <!-- CONTROLES DEL HOST -->
               <div class="flex items-center gap-3">
                 <button id="btn-toggle-sound" class="p-2.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-300 transition-colors" title="Silenciar">
                   🔊
@@ -273,15 +290,13 @@
             </div>
           </header>
 
-          <!-- ESCENARIO PRINCIPAL -->
           <main class="flex-1 max-w-7xl w-full mx-auto p-4 sm:p-6 flex flex-col gap-6">
-            <!-- CONSIGNAR Y TEMPORIZADOR -->
             <div class="relative rounded-3xl bg-gradient-to-r from-slate-900 via-indigo-950/60 to-slate-900 border-2 border-indigo-500/30 p-6 shadow-2xl flex flex-col md:flex-row items-center justify-between gap-4">
               <div class="space-y-1 text-center md:text-left flex-1">
                 <span class="text-xs font-black uppercase tracking-wider text-amber-400 px-2.5 py-0.5 rounded-full bg-amber-400/10 border border-amber-400/20">
-                  Consigna Secreta
+                  Frase a Dibujar
                 </span>
-                <h2 id="host-prompt-text" class="text-2xl sm:text-4xl font-extrabold text-white tracking-tight">
+                <h2 id="host-prompt-text" class="text-3xl sm:text-5xl font-extrabold text-white tracking-tight">
                   &ldquo;${initialPrompt}&rdquo;
                 </h2>
               </div>
@@ -296,7 +311,7 @@
               </div>
             </div>
 
-            <!-- VISTA DUAL DE JUGADORES (MINIATURAS CANVAS + QR) -->
+            <!-- DUAL ARENA: MINIATURAS CANVAS -->
             <div class="grid grid-cols-1 lg:grid-cols-2 gap-6 flex-1 items-stretch">
               <!-- JUGADOR 1 -->
               <div class="flex flex-col rounded-3xl bg-slate-900/90 border-2 border-red-500/30 shadow-xl overflow-hidden">
@@ -310,9 +325,7 @@
                   </span>
                 </div>
                 <div class="relative flex-1 min-h-[340px] bg-slate-950 flex items-center justify-center p-4">
-                  <!-- Miniatura Canvas en tiempo real -->
                   <canvas id="canvas-preview-1" width="340" height="340" class="max-h-[320px] w-auto rounded-xl border border-slate-700 bg-white hidden shadow-md"></canvas>
-                  <!-- Placeholder QR antes de dibujar -->
                   <div id="p1-qr-placeholder" class="flex flex-col items-center justify-center text-center p-4 space-y-2">
                     <div id="host-qr-1" class="p-3 bg-white rounded-2xl shadow-xl"></div>
                     <p class="text-xs font-bold text-slate-300 mt-2">Escanea para unirte como Jugador 1</p>
@@ -333,9 +346,7 @@
                   </span>
                 </div>
                 <div class="relative flex-1 min-h-[340px] bg-slate-950 flex items-center justify-center p-4">
-                  <!-- Miniatura Canvas en tiempo real -->
                   <canvas id="canvas-preview-2" width="340" height="340" class="max-h-[320px] w-auto rounded-xl border border-slate-700 bg-white hidden shadow-md"></canvas>
-                  <!-- Placeholder QR antes de dibujar -->
                   <div id="p2-qr-placeholder" class="flex flex-col items-center justify-center text-center p-4 space-y-2">
                     <div id="host-qr-2" class="p-3 bg-white rounded-2xl shadow-xl"></div>
                     <p class="text-xs font-bold text-slate-300 mt-2">Escanea para unirte como Jugador 2</p>
@@ -345,11 +356,10 @@
               </div>
             </div>
 
-            <!-- BOTÓN INICIAR PARTIDA -->
             <div class="p-4 bg-slate-900 rounded-3xl border border-slate-800 flex flex-col sm:flex-row items-center justify-between gap-4">
               <div class="text-xs text-slate-400 flex items-center gap-2">
                 <span class="w-2 h-2 rounded-full bg-amber-400 animate-ping"></span>
-                <span id="host-status-hint">Esperando a que ambos jugadores escaneen el QR y se conecten...</span>
+                <span id="host-status-hint">Esperando a que ambos jugadores se conecten...</span>
               </div>
               <button id="btn-start-game" disabled class="w-full sm:w-auto px-8 py-3.5 bg-gradient-to-r from-amber-400 via-orange-500 to-pink-500 hover:from-amber-300 hover:to-pink-400 disabled:opacity-30 disabled:cursor-not-allowed text-slate-950 font-black text-sm uppercase tracking-wider rounded-2xl shadow-lg transition-transform active:scale-95 flex items-center justify-center gap-2">
                 <span>▶ Iniciar Partida</span>
@@ -357,16 +367,16 @@
             </div>
           </main>
 
-          <!-- OVERLAY EVALUANDO CON GEMINI -->
+          <!-- OVERLAY EVALUANDO -->
           <div id="overlay-evaluating" class="fixed inset-0 z-50 bg-slate-950/90 backdrop-blur-md flex flex-col items-center justify-center p-6 text-center hidden">
             <div class="w-20 h-20 rounded-full border-4 border-purple-500/30 border-t-purple-400 animate-spin mb-4"></div>
             <h2 class="text-3xl font-game text-white tracking-wider">EL JUEZ GEMINI ESTÁ EVALUANDO</h2>
             <p class="text-sm text-slate-300 max-w-md mt-2">
-              Analizando los trazos de ambos jugadores, la creatividad y la fidelidad a la consigna...
+              Analizando los trazos y el parecido con la frase...
             </p>
           </div>
 
-          <!-- MODAL VEREDICTO FINAL -->
+          <!-- MODAL VEREDICTO -->
           <div id="modal-verdict" class="fixed inset-0 z-50 bg-black/85 backdrop-blur-md flex items-center justify-center p-4 hidden">
             <div class="w-full max-w-3xl bg-slate-900 border-2 border-amber-500/50 rounded-3xl shadow-2xl overflow-hidden flex flex-col my-auto">
               <div class="p-6 bg-gradient-to-b from-amber-500/20 to-slate-900 border-b border-slate-800 text-center">
@@ -407,7 +417,7 @@
         </div>
       `;
 
-      // Generar Códigos QR Dinámicos apuntando al móvil
+      // Códigos QR
       const p1Url = `${publicJoinUrl}&player=1`;
       const p2Url = `${publicJoinUrl}&player=2`;
 
@@ -431,7 +441,7 @@
       });
       document.getElementById('p2-direct-link').href = p2Url;
 
-      // Eventos UI
+      // Eventos
       document.getElementById('btn-toggle-sound').onclick = () => {
         sound.muted = !sound.muted;
         document.getElementById('btn-toggle-sound').textContent = sound.muted ? '🔇' : '🔊';
@@ -473,7 +483,7 @@
         document.getElementById('host-prompt-text').textContent = `“${next}”`;
       };
 
-      // Simulación de prueba para jugar solo
+      // Simular con bot
       document.getElementById('btn-bot-demo').onclick = () => {
         sound.pop();
         update(ref(db, `rooms/${roomId}`), {
@@ -481,7 +491,6 @@
           player2_connected: true
         });
 
-        // Crear dibujos de demostración
         const c1 = document.createElement('canvas'); c1.width = 340; c1.height = 340;
         const ctx1 = c1.getContext('2d'); ctx1.fillStyle = '#fff'; ctx1.fillRect(0,0,340,340);
         ctx1.strokeStyle = '#ef4444'; ctx1.lineWidth = 10;
@@ -498,7 +507,6 @@
         });
       };
 
-      // Temporizador de 60 segundos
       let timerInterval = null;
       function startCountdown() {
         if (timerInterval) clearInterval(timerInterval);
@@ -525,14 +533,12 @@
         }, 1000);
       }
 
-      // Escuchar cambios en la sala desde Firebase
-      const roomRef = ref(db, `rooms/${roomId}`);
-      onValue(roomRef, (snapshot) => {
+      // Escuchar cambios
+      onValue(ref(db, `rooms/${roomId}`), (snapshot) => {
         if (!snapshot.exists()) return;
         const data = snapshot.val();
         Object.assign(roomState, data);
 
-        // Actualizar badges de conexión
         const p1Badge = document.getElementById('p1-badge');
         const p2Badge = document.getElementById('p2-badge');
         if (p1Badge) {
@@ -548,7 +554,6 @@
             : 'text-xs font-semibold px-2.5 py-1 rounded-full bg-slate-800 text-slate-400';
         }
 
-        // Habilitar botón de inicio cuando ambos estén conectados
         const btnStart = document.getElementById('btn-start-game');
         const hint = document.getElementById('host-status-hint');
         if (btnStart && hint) {
@@ -564,9 +569,9 @@
           }
         }
 
-        // Actualizar lienzos <canvas> en miniatura en tiempo real
+        // Miniatura Canvas J1
         const canvasP1 = document.getElementById('canvas-preview-1');
-        const qrPlaceholder1 = document.getElementById('p1-qr-placeholder');
+        const qrP1 = document.getElementById('p1-qr-placeholder');
         if (data.player1_image) {
           const img1 = new Image();
           img1.onload = () => {
@@ -574,16 +579,17 @@
             ctx1.clearRect(0, 0, canvasP1.width, canvasP1.height);
             ctx1.drawImage(img1, 0, 0, canvasP1.width, canvasP1.height);
             canvasP1.classList.remove('hidden');
-            qrPlaceholder1.classList.add('hidden');
+            qrP1.classList.add('hidden');
           };
           img1.src = data.player1_image;
         } else if (data.status !== 'playing') {
           canvasP1.classList.add('hidden');
-          qrPlaceholder1.classList.remove('hidden');
+          qrP1.classList.remove('hidden');
         }
 
+        // Miniatura Canvas J2
         const canvasP2 = document.getElementById('canvas-preview-2');
-        const qrPlaceholder2 = document.getElementById('p2-qr-placeholder');
+        const qrP2 = document.getElementById('p2-qr-placeholder');
         if (data.player2_image) {
           const img2 = new Image();
           img2.onload = () => {
@@ -591,16 +597,15 @@
             ctx2.clearRect(0, 0, canvasP2.width, canvasP2.height);
             ctx2.drawImage(img2, 0, 0, canvasP2.width, canvasP2.height);
             canvasP2.classList.remove('hidden');
-            qrPlaceholder2.classList.add('hidden');
+            qrP2.classList.add('hidden');
           };
           img2.src = data.player2_image;
         } else if (data.status !== 'playing') {
           canvasP2.classList.add('hidden');
-          qrPlaceholder2.classList.remove('hidden');
+          qrP2.classList.remove('hidden');
         }
       });
 
-      // Petición a la API de Gemini (Juez IA)
       async function evaluateWithGemini() {
         document.getElementById('overlay-evaluating').classList.remove('hidden');
         update(ref(db, `rooms/${roomId}`), { status: 'evaluating' });
@@ -610,7 +615,6 @@
         const currentPrompt = roomState.prompt || initialPrompt;
 
         try {
-          // Intentar primero endpoint local proxy seguro
           const res = await fetch('/api/judge', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
@@ -621,12 +625,11 @@
             })
           });
 
-          if (!res.ok) throw new Error("Fallo en endpoint local");
+          if (!res.ok) throw new Error("Fallo en endpoint");
           const result = await res.json();
           showVerdict(result);
         } catch (err) {
-          console.warn("Llamando a API de Gemini directamente o fallback:", err);
-          // Veredicto de respaldo enriquecido
+          console.warn("Fallback de evaluación:", err);
           const score1 = p1Img ? Math.floor(Math.random() * 20) + 75 : 15;
           const score2 = p2Img ? Math.floor(Math.random() * 20) + 75 : 15;
           const winner = score1 > score2 ? "Jugador 1" : score2 > score1 ? "Jugador 2" : "Empate";
@@ -638,8 +641,8 @@
             scorePlayer2: score2,
             critiquePlayer1: "Trazos atrevidos con excelente sentido del humor.",
             critiquePlayer2: "Una propuesta libre con mucha creatividad visual.",
-            verdict: `¡${winner} se lleva la corona por representar mejor la consigna "${currentPrompt}"!`,
-            funAward: "🎨 Trofeo al Gran Pictionary IA"
+            verdict: `¡${winner} se lleva la corona por representar mejor "${currentPrompt}"!`,
+            funAward: "🎨 Trofeo Pictionary IA"
           });
         }
       }
@@ -689,8 +692,8 @@
 
           <!-- CONSIGNAR / FRASE A DIBUJAR -->
           <div class="shrink-0 bg-gradient-to-r from-slate-900 via-indigo-950/40 to-slate-900 border-b border-indigo-500/20 px-3 py-2 text-center">
-            <p class="text-[10px] uppercase font-bold text-amber-400 tracking-wider">Tu misión a dibujar:</p>
-            <h2 id="player-prompt-val" class="text-sm font-extrabold text-white truncate max-w-full">
+            <p class="text-[10px] uppercase font-bold text-amber-400 tracking-wider">Tu frase a dibujar:</p>
+            <h2 id="player-prompt-val" class="text-base font-extrabold text-white truncate max-w-full">
               Esperando al Host...
             </h2>
           </div>
@@ -701,7 +704,7 @@
               <canvas id="paint-canvas" class="w-full h-full block cursor-crosshair touch-canvas"></canvas>
             </div>
 
-            <!-- MODAL SELECCIÓN DE JUGADOR (Si no viene en URL) -->
+            <!-- MODAL SELECCIÓN DE JUGADOR -->
             <div id="player-select-modal" class="absolute inset-0 m-2 rounded-2xl bg-slate-950/95 backdrop-blur-md flex flex-col items-center justify-center p-6 text-center z-30 ${playerNum ? 'hidden' : ''}">
               <div class="w-14 h-14 rounded-2xl bg-amber-400/20 text-amber-400 flex items-center justify-center text-2xl mb-3">
                 🎨
@@ -737,10 +740,10 @@
             </div>
           </main>
 
-          <!-- BARRA DE HERRAMIENTAS INFERIOR -->
+          <!-- BARRA DE HERRAMIENTAS COMPLETA -->
           <footer class="shrink-0 p-2.5 bg-slate-900 border-t border-slate-800 flex flex-col gap-2">
             <!-- Selector de Colores -->
-            <div class="flex items-center justify-between gap-1 overflow-x-auto">
+            <div class="flex items-center justify-between gap-1 overflow-x-auto py-0.5">
               <div class="flex items-center gap-1.5" id="color-palette"></div>
               <label class="w-7 h-7 rounded-full cursor-pointer bg-gradient-to-tr from-pink-500 to-yellow-400 border border-white/40 flex items-center justify-center shrink-0">
                 <input id="picker-color" type="color" value="#09090b" class="opacity-0 w-0 h-0" />
@@ -748,20 +751,44 @@
               </label>
             </div>
 
-            <!-- Selector de Grosores y Limpiar Lienzo -->
-            <div class="flex items-center justify-between pt-1 border-t border-slate-800">
+            <!-- HERRAMIENTAS DE DIBUJO (PINCEL, BALDE, LÍNEA, FORMAS, GOMA, DESHACER) -->
+            <div class="flex items-center justify-between gap-1 pt-1 border-t border-slate-800">
+              <!-- Modos de Herramienta -->
               <div class="flex items-center bg-slate-800 p-1 rounded-xl gap-1">
-                <button data-size="4" class="btn-brush px-2 py-1 rounded-lg text-xs font-bold text-slate-400">Fino</button>
-                <button data-size="9" class="btn-brush px-2 py-1 rounded-lg text-xs font-bold bg-slate-700 text-amber-400">Medio</button>
-                <button data-size="18" class="btn-brush px-2 py-1 rounded-lg text-xs font-bold text-slate-400">Grueso</button>
-              </div>
-
-              <div class="flex items-center gap-1.5">
-                <button id="btn-eraser" class="px-3 py-1.5 rounded-xl bg-slate-800 text-xs font-bold text-slate-300 hover:text-white">
+                <button id="tool-brush" class="tool-btn px-2.5 py-1.5 rounded-lg text-xs font-bold bg-indigo-600 text-white shadow" title="Pincel">
+                  🖌️ Pincel
+                </button>
+                <button id="tool-bucket" class="tool-btn px-2.5 py-1.5 rounded-lg text-xs font-bold text-slate-400 hover:text-white" title="Balde de Relleno">
+                  🪣 Balde
+                </button>
+                <button id="tool-line" class="tool-btn px-2.5 py-1.5 rounded-lg text-xs font-bold text-slate-400 hover:text-white" title="Línea Recta">
+                  📏 Línea
+                </button>
+                <button id="tool-circle" class="tool-btn px-2 py-1.5 rounded-lg text-xs font-bold text-slate-400 hover:text-white" title="Círculo">
+                  ⭕
+                </button>
+                <button id="tool-rect" class="tool-btn px-2 py-1.5 rounded-lg text-xs font-bold text-slate-400 hover:text-white" title="Rectángulo">
+                  🔲
+                </button>
+                <button id="tool-eraser" class="tool-btn px-2.5 py-1.5 rounded-lg text-xs font-bold text-slate-400 hover:text-white" title="Goma">
                   🧹 Goma
                 </button>
-                <button id="btn-clear-canvas" class="px-3 py-1.5 rounded-xl bg-red-950/60 border border-red-800/40 text-xs font-bold text-red-400">
-                  🗑️ Limpiar
+              </div>
+
+              <!-- Selector de Grosores -->
+              <div class="flex items-center bg-slate-800 p-1 rounded-xl gap-1">
+                <button data-size="4" class="btn-brush px-2 py-1 rounded-lg text-xs font-bold text-slate-400">3px</button>
+                <button data-size="9" class="btn-brush px-2 py-1 rounded-lg text-xs font-bold bg-slate-700 text-amber-400">8px</button>
+                <button data-size="20" class="btn-brush px-2 py-1 rounded-lg text-xs font-bold text-slate-400">18px</button>
+              </div>
+
+              <!-- Deshacer y Limpiar -->
+              <div class="flex items-center gap-1">
+                <button id="btn-undo" class="p-2 rounded-xl bg-slate-800 text-xs font-bold text-slate-300 hover:text-white" title="Deshacer">
+                  ↩️
+                </button>
+                <button id="btn-clear-canvas" class="p-2 rounded-xl bg-red-950/60 border border-red-800/40 text-xs font-bold text-red-400" title="Limpiar lienzo">
+                  🗑️
                 </button>
               </div>
             </div>
@@ -778,11 +805,8 @@
           ? 'px-2.5 py-1 rounded-xl text-xs font-black uppercase tracking-wider bg-red-500/20 text-red-400 border border-red-500/40'
           : 'px-2.5 py-1 rounded-xl text-xs font-black uppercase tracking-wider bg-cyan-500/20 text-cyan-400 border border-cyan-500/40';
 
-        // Actualizar en Firebase
         const connKey = num === 1 ? 'player1_connected' : 'player2_connected';
         update(ref(db, `rooms/${roomId}`), { [connKey]: true });
-
-        // Desconexión automática al cerrar
         onDisconnect(ref(db, `rooms/${roomId}/${connKey}`)).set(false);
       }
 
@@ -793,54 +817,118 @@
         document.getElementById('btn-select-j2').onclick = () => registerPlayer(2);
       }
 
-      // Configuración del Lienzo Táctil
+      // --- CONFIGURACIÓN DEL LIENZO TÁCTIL CON ALINEACIÓN PERFECTA (SIN DESFASE EN EJE X/Y) ---
       const canvas = document.getElementById('paint-canvas');
       const container = document.getElementById('canvas-container');
-      const ctx = canvas.getContext('2d');
+      const ctx = canvas.getContext('2d', { willReadFrequently: true });
 
+      let currentTool = 'brush'; // 'brush', 'bucket', 'line', 'circle', 'rect', 'eraser'
       let currentColor = '#09090b';
       let currentSize = 9;
-      let isEraser = false;
       let isDrawing = false;
+      let startPoint = null;
       let lastPoint = null;
+      let snapshot = null;
 
+      // Pila de historial para deshacer (Undo)
+      const historyStack = [];
+      function saveHistory() {
+        if (historyStack.length >= 15) historyStack.shift();
+        historyStack.push(ctx.getImageData(0, 0, canvas.width, canvas.height));
+      }
+
+      // Ajuste de resolución 1:1 con DPI exacto y sin desajuste de escala
       function resizeCanvas() {
         const rect = container.getBoundingClientRect();
         const dpr = Math.min(window.devicePixelRatio || 1, 2);
-        canvas.width = rect.width * dpr;
-        canvas.height = rect.height * dpr;
-        ctx.scale(dpr, dpr);
+
+        let tempCanvas = null;
+        if (canvas.width > 0 && canvas.height > 0) {
+          tempCanvas = document.createElement('canvas');
+          tempCanvas.width = canvas.width;
+          tempCanvas.height = canvas.height;
+          tempCanvas.getContext('2d').drawImage(canvas, 0, 0);
+        }
+
+        canvas.width = Math.round(rect.width * dpr);
+        canvas.height = Math.round(rect.height * dpr);
+
         ctx.lineCap = 'round';
         ctx.lineJoin = 'round';
         ctx.fillStyle = '#FFFFFF';
-        ctx.fillRect(0, 0, rect.width, rect.height);
+        ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+        if (tempCanvas) {
+          ctx.drawImage(tempCanvas, 0, 0, canvas.width, canvas.height);
+        }
+        saveHistory();
       }
       resizeCanvas();
       window.addEventListener('resize', resizeCanvas);
 
-      // Paleta de colores
-      const colors = ['#09090b', '#ef4444', '#f97316', '#eab308', '#22c55e', '#06b6d4', '#3b82f6', '#8b5cf6', '#ec4899'];
+      // --- CÁLCULO PRECISO DE COORDENADAS (ARREGLO DEL EJE X Y EJE Y) ---
+      function getPos(e) {
+        const rect = canvas.getBoundingClientRect();
+        // Mapea exactamente los píxeles de pantalla a los píxeles internos del canvas
+        const scaleX = canvas.width / rect.width;
+        const scaleY = canvas.height / rect.height;
+        return {
+          x: (e.clientX - rect.left) * scaleX,
+          y: (e.clientY - rect.top) * scaleY
+        };
+      }
+
+      function getEffectiveLineWidth() {
+        const rect = canvas.getBoundingClientRect();
+        const scale = canvas.width / rect.width;
+        return currentSize * scale;
+      }
+
+      // Paleta de colores expandida
+      const colors = ['#09090b', '#ef4444', '#f97316', '#eab308', '#22c55e', '#10b981', '#06b6d4', '#3b82f6', '#6366f1', '#8b5cf6', '#ec4899', '#78350f', '#64748b', '#ffffff'];
       const palEl = document.getElementById('color-palette');
       colors.forEach(c => {
         const btn = document.createElement('button');
-        btn.className = `w-7 h-7 rounded-full border-2 transition-transform ${c === currentColor ? 'border-amber-400 scale-110' : 'border-slate-700'}`;
+        btn.className = `w-7 h-7 rounded-full border-2 transition-transform shrink-0 ${c === currentColor ? 'border-amber-400 scale-110 shadow-md' : 'border-slate-700'}`;
         btn.style.backgroundColor = c;
         btn.onclick = () => {
-          isEraser = false;
           currentColor = c;
+          if (currentTool === 'eraser') setTool('brush');
           sound.pop();
-          document.querySelectorAll('#color-palette button').forEach(b => b.classList.remove('border-amber-400', 'scale-110'));
-          btn.classList.add('border-amber-400', 'scale-110');
-          document.getElementById('btn-eraser').classList.remove('bg-pink-600', 'text-white');
+          document.querySelectorAll('#color-palette button').forEach(b => b.classList.remove('border-amber-400', 'scale-110', 'shadow-md'));
+          btn.classList.add('border-amber-400', 'scale-110', 'shadow-md');
         };
         palEl.appendChild(btn);
       });
 
       document.getElementById('picker-color').onchange = (e) => {
-        isEraser = false;
         currentColor = e.target.value;
+        if (currentTool === 'eraser') setTool('brush');
       };
 
+      // Selector de herramientas
+      function setTool(toolName) {
+        currentTool = toolName;
+        sound.pop();
+        document.querySelectorAll('.tool-btn').forEach(btn => {
+          btn.classList.remove('bg-indigo-600', 'text-white', 'shadow');
+          btn.classList.add('text-slate-400');
+        });
+        const activeBtn = document.getElementById(`tool-${toolName}`);
+        if (activeBtn) {
+          activeBtn.classList.remove('text-slate-400');
+          activeBtn.classList.add('bg-indigo-600', 'text-white', 'shadow');
+        }
+      }
+
+      document.getElementById('tool-brush').onclick = () => setTool('brush');
+      document.getElementById('tool-bucket').onclick = () => setTool('bucket');
+      document.getElementById('tool-line').onclick = () => setTool('line');
+      document.getElementById('tool-circle').onclick = () => setTool('circle');
+      document.getElementById('tool-rect').onclick = () => setTool('rect');
+      document.getElementById('tool-eraser').onclick = () => setTool('eraser');
+
+      // Selector de grosores
       document.querySelectorAll('.btn-brush').forEach(b => {
         b.onclick = () => {
           sound.pop();
@@ -853,77 +941,184 @@
         };
       });
 
-      document.getElementById('btn-eraser').onclick = () => {
+      // Deshacer (Undo)
+      document.getElementById('btn-undo').onclick = () => {
+        if (historyStack.length <= 1) return;
         sound.pop();
-        isEraser = !isEraser;
-        document.getElementById('btn-eraser').className = isEraser 
-          ? 'px-3 py-1.5 rounded-xl bg-pink-600 text-xs font-bold text-white' 
-          : 'px-3 py-1.5 rounded-xl bg-slate-800 text-xs font-bold text-slate-300';
+        historyStack.pop(); // Quitar estado actual
+        const prevState = historyStack[historyStack.length - 1];
+        if (prevState) {
+          ctx.putImageData(prevState, 0, 0);
+          emitCanvas();
+        }
       };
 
+      // Limpiar lienzo
       document.getElementById('btn-clear-canvas').onclick = () => {
         sound.pop();
-        const rect = container.getBoundingClientRect();
         ctx.fillStyle = '#FFFFFF';
-        ctx.fillRect(0, 0, rect.width, rect.height);
+        ctx.fillRect(0, 0, canvas.width, canvas.height);
+        saveHistory();
         emitCanvas();
       };
 
-      // Eventos de Trazado Táctil
-      function getPos(e) {
-        const r = canvas.getBoundingClientRect();
-        return { x: e.clientX - r.left, y: e.clientY - r.top };
+      // --- ALGORITMO DEL BALDE DE PINTURA (FLOOD FILL) ---
+      function hexToRgb(hex) {
+        let c = hex.replace('#', '');
+        if (c.length === 3) c = c.split('').map(x => x + x).join('');
+        const num = parseInt(c, 16);
+        return { r: (num >> 16) & 255, g: (num >> 8) & 255, b: num & 255 };
       }
 
+      function floodFill(startX, startY, fillHex) {
+        startX = Math.floor(startX);
+        startY = Math.floor(startY);
+        const w = canvas.width;
+        const h = canvas.height;
+        if (startX < 0 || startX >= w || startY < 0 || startY >= h) return;
+
+        const imgData = ctx.getImageData(0, 0, w, h);
+        const data = imgData.data;
+        const fill = hexToRgb(fillHex);
+
+        const targetIdx = (startY * w + startX) * 4;
+        const targetR = data[targetIdx];
+        const targetG = data[targetIdx + 1];
+        const targetB = data[targetIdx + 2];
+        const targetA = data[targetIdx + 3];
+
+        if (Math.abs(targetR - fill.r) < 10 && Math.abs(targetG - fill.g) < 10 && Math.abs(targetB - fill.b) < 10) {
+          return;
+        }
+
+        const queue = [startX, startY];
+        const visited = new Uint8Array(w * h);
+        const tolerance = 40;
+
+        function match(idx) {
+          return Math.abs(data[idx] - targetR) <= tolerance &&
+                 Math.abs(data[idx+1] - targetG) <= tolerance &&
+                 Math.abs(data[idx+2] - targetB) <= tolerance;
+        }
+
+        while (queue.length > 0) {
+          const cy = queue.pop();
+          const cx = queue.pop();
+          const pIdx = cy * w + cx;
+
+          if (visited[pIdx]) continue;
+          visited[pIdx] = 1;
+
+          const idx = pIdx * 4;
+          data[idx] = fill.r;
+          data[idx + 1] = fill.g;
+          data[idx + 2] = fill.b;
+          data[idx + 3] = 255;
+
+          // Vecinos (Arriba, Abajo, Izquierda, Derecha)
+          if (cy > 0 && !visited[(cy - 1) * w + cx] && match(((cy - 1) * w + cx) * 4)) queue.push(cx, cy - 1);
+          if (cy < h - 1 && !visited[(cy + 1) * w + cx] && match(((cy + 1) * w + cx) * 4)) queue.push(cx, cy + 1);
+          if (cx > 0 && !visited[cy * w + (cx - 1)] && match((cy * w + (cx - 1)) * 4)) queue.push(cx - 1, cy);
+          if (cx < w - 1 && !visited[cy * w + (cx + 1)] && match((cy * w + (cx + 1)) * 4)) queue.push(cx + 1, cy);
+        }
+
+        ctx.putImageData(imgData, 0, 0);
+        saveHistory();
+        emitCanvas();
+      }
+
+      // --- GESTIÓN DE EVENTOS DE TRAZADO (POINTERDOWN, POINTERMOVE, POINTERUP) ---
       let currentRoomStatus = 'waiting';
 
       canvas.onpointerdown = (e) => {
         if (currentRoomStatus !== 'playing') return;
         canvas.setPointerCapture(e.pointerId);
-        isDrawing = true;
-        lastPoint = getPos(e);
 
-        ctx.strokeStyle = isEraser ? '#FFFFFF' : currentColor;
-        ctx.lineWidth = currentSize;
-        ctx.beginPath();
-        ctx.arc(lastPoint.x, lastPoint.y, currentSize / 2, 0, Math.PI * 2);
-        ctx.fillStyle = isEraser ? '#FFFFFF' : currentColor;
-        ctx.fill();
-        scheduleEmit();
+        const pos = getPos(e);
+        startPoint = pos;
+        lastPoint = pos;
+        isDrawing = true;
+
+        if (currentTool === 'bucket') {
+          sound.pop();
+          floodFill(pos.x, pos.y, currentColor);
+          isDrawing = false;
+          return;
+        }
+
+        snapshot = ctx.getImageData(0, 0, canvas.width, canvas.height);
+
+        const lw = getEffectiveLineWidth();
+        ctx.strokeStyle = currentTool === 'eraser' ? '#FFFFFF' : currentColor;
+        ctx.lineWidth = lw;
+
+        if (currentTool === 'brush' || currentTool === 'eraser') {
+          ctx.beginPath();
+          ctx.arc(pos.x, pos.y, lw / 2, 0, Math.PI * 2);
+          ctx.fillStyle = currentTool === 'eraser' ? '#FFFFFF' : currentColor;
+          ctx.fill();
+        }
       };
 
       canvas.onpointermove = (e) => {
         if (!isDrawing || currentRoomStatus !== 'playing') return;
         const cur = getPos(e);
-        ctx.strokeStyle = isEraser ? '#FFFFFF' : currentColor;
-        ctx.lineWidth = currentSize;
+        const lw = getEffectiveLineWidth();
+        ctx.strokeStyle = currentTool === 'eraser' ? '#FFFFFF' : currentColor;
+        ctx.lineWidth = lw;
 
-        ctx.beginPath();
-        ctx.moveTo(lastPoint.x, lastPoint.y);
-        const midX = (lastPoint.x + cur.x) / 2;
-        const midY = (lastPoint.y + cur.y) / 2;
-        ctx.quadraticCurveTo(lastPoint.x, lastPoint.y, midX, midY);
-        ctx.stroke();
+        if (currentTool === 'brush' || currentTool === 'eraser') {
+          ctx.beginPath();
+          ctx.moveTo(lastPoint.x, lastPoint.y);
+          const midX = (lastPoint.x + cur.x) / 2;
+          const midY = (lastPoint.y + cur.y) / 2;
+          ctx.quadraticCurveTo(lastPoint.x, lastPoint.y, midX, midY);
+          ctx.stroke();
+          lastPoint = cur;
+          scheduleEmit();
+        } else if (snapshot) {
+          // Previsualización interactiva de Línea, Rectángulo o Círculo
+          ctx.putImageData(snapshot, 0, 0);
 
-        lastPoint = cur;
-        scheduleEmit();
+          if (currentTool === 'line') {
+            ctx.beginPath();
+            ctx.moveTo(startPoint.x, startPoint.y);
+            ctx.lineTo(cur.x, cur.y);
+            ctx.stroke();
+          } else if (currentTool === 'rect') {
+            const rx = Math.min(startPoint.x, cur.x);
+            const ry = Math.min(startPoint.y, cur.y);
+            const rw = Math.abs(cur.x - startPoint.x);
+            const rh = Math.abs(cur.y - startPoint.y);
+            ctx.strokeRect(rx, ry, rw, rh);
+          } else if (currentTool === 'circle') {
+            const rx = Math.abs(cur.x - startPoint.x);
+            const ry = Math.abs(cur.y - startPoint.y);
+            const r = Math.sqrt(rx * rx + ry * ry);
+            ctx.beginPath();
+            ctx.arc(startPoint.x, startPoint.y, r, 0, Math.PI * 2);
+            ctx.stroke();
+          }
+        }
       };
 
       canvas.onpointerup = () => {
         if (!isDrawing) return;
         isDrawing = false;
+        startPoint = null;
         lastPoint = null;
+        snapshot = null;
+        saveHistory();
         emitCanvas();
       };
 
-      // Envío periódico a Firebase
       let emitTimer = null;
       function scheduleEmit() {
         if (emitTimer) return;
         emitTimer = setTimeout(() => {
           emitTimer = null;
           emitCanvas();
-        }, 280);
+        }, 260);
       }
 
       function emitCanvas() {
@@ -942,7 +1137,6 @@
         update(ref(db, `rooms/${roomId}`), { [imgKey]: b64 });
       }
 
-      // Sincronización en tiempo real
       onValue(ref(db, `rooms/${roomId}`), (snapshot) => {
         if (!snapshot.exists()) return;
         const data = snapshot.val();
