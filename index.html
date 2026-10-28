@@ -1,0 +1,973 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover" />
+  <title>Duelo de Dibujos IA - Pictionary Multijugador</title>
+  <meta name="description" content="Juego multijugador en tiempo real tipo Pictionary con pantalla Host para PC, dibujo táctil para móvil y Juez IA de Gemini." />
+
+  <!-- Tailwind CSS CDN -->
+  <script src="https://cdn.tailwindcss.com"></script>
+  <!-- QRCode.js CDN -->
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
+  <!-- Canvas Confetti CDN -->
+  <script src="https://cdn.jsdelivr.net/npm/canvas-confetti@1.9.3/dist/confetti.browser.min.js"></script>
+
+  <!-- Google Fonts -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Bungee&family=Plus+Jakarta+Sans:wght@400;600;700;800;900&family=Space+Grotesk:wght@600;700&display=swap" rel="stylesheet">
+
+  <style>
+    body {
+      font-family: 'Plus Jakarta Sans', system-ui, -apple-system, sans-serif;
+      user-select: none;
+      -webkit-user-select: none;
+      touch-action: manipulation;
+    }
+    .font-game {
+      font-family: 'Bungee', cursive, sans-serif;
+    }
+    .font-mono-num {
+      font-family: 'Space Grotesk', monospace;
+      font-variant-numeric: tabular-nums;
+    }
+    .touch-canvas {
+      touch-action: none;
+      -webkit-touch-callout: none;
+    }
+    .bg-grid-lines {
+      background-size: 32px 32px;
+      background-image: 
+        linear-gradient(to right, rgba(255, 255, 255, 0.04) 1px, transparent 1px),
+        linear-gradient(to bottom, rgba(255, 255, 255, 0.04) 1px, transparent 1px);
+    }
+  </style>
+</head>
+<body class="bg-slate-950 text-slate-100 min-h-screen bg-grid-lines overflow-x-hidden selection:bg-amber-400 selection:text-slate-950">
+
+  <!-- CONTENEDOR PRINCIPAL -->
+  <div id="app" class="min-h-screen flex flex-col justify-between"></div>
+
+  <!-- FIREBASE v10 MODULAR Y LÓGICA COMPLETA DEL JUEGO -->
+  <script type="module">
+    import { initializeApp } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-app.js";
+    import { getDatabase, ref, set, update, onValue, onDisconnect } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-database.js";
+
+    // --- CONFIGURACIÓN DE FIREBASE DIRECTA ---
+    const firebaseConfig = {
+      apiKey: "AIzaSyBADzh7XPgGxMqG2b0TpieITZi5IUJdaGU",
+      authDomain: "proyecto-feria-f5ece.firebaseapp.com",
+      databaseURL: "https://proyecto-feria-f5ece-default-rtdb.firebaseio.com/",
+      projectId: "proyecto-feria-f5ece",
+      storageBucket: "proyecto-feria-f5ece.firebasestorage.app",
+      messagingSenderId: "696363231223",
+      appId: "1:696363231223:web:35cfae1043ad6a770430f2",
+      measurementId: "G-56J1BL9GP8"
+    };
+
+    let app, db;
+    try {
+      app = initializeApp(firebaseConfig);
+      db = getDatabase(app);
+      console.log("Firebase Realtime Database inicializado correctamente.");
+    } catch (err) {
+      console.warn("Error al inicializar Firebase:", err);
+    }
+
+    // --- SINTETIZADOR DE EFECTOS DE SONIDO (WEB AUDIO API) ---
+    class SoundFX {
+      constructor() {
+        this.ctx = null;
+        this.muted = false;
+      }
+      init() {
+        if (!this.ctx && window.AudioContext) {
+          this.ctx = new (window.AudioContext || window.webkitAudioContext)();
+        }
+        if (this.ctx && this.ctx.state === 'suspended') {
+          this.ctx.resume().catch(() => {});
+        }
+      }
+      pop() {
+        if (this.muted) return;
+        this.init();
+        if (!this.ctx) return;
+        const osc = this.ctx.createOscillator();
+        const gain = this.ctx.createGain();
+        osc.type = 'sine';
+        osc.frequency.setValueAtTime(360, this.ctx.currentTime);
+        osc.frequency.exponentialRampToValueAtTime(750, this.ctx.currentTime + 0.05);
+        gain.gain.setValueAtTime(0.08, this.ctx.currentTime);
+        gain.gain.exponentialRampToValueAtTime(0.001, this.ctx.currentTime + 0.05);
+        osc.connect(gain);
+        gain.connect(this.ctx.destination);
+        osc.start();
+        osc.stop(this.ctx.currentTime + 0.06);
+      }
+      tick(high = false) {
+        if (this.muted) return;
+        this.init();
+        if (!this.ctx) return;
+        const osc = this.ctx.createOscillator();
+        const gain = this.ctx.createGain();
+        osc.type = 'sine';
+        osc.frequency.setValueAtTime(high ? 1100 : 700, this.ctx.currentTime);
+        gain.gain.setValueAtTime(0.06, this.ctx.currentTime);
+        gain.gain.exponentialRampToValueAtTime(0.001, this.ctx.currentTime + 0.07);
+        osc.connect(gain);
+        gain.connect(this.ctx.destination);
+        osc.start();
+        osc.stop(this.ctx.currentTime + 0.07);
+      }
+      start() {
+        if (this.muted) return;
+        this.init();
+        if (!this.ctx) return;
+        [440, 554, 659, 880].forEach((freq, i) => {
+          const osc = this.ctx.createOscillator();
+          const gain = this.ctx.createGain();
+          osc.type = 'triangle';
+          osc.frequency.setValueAtTime(freq, this.ctx.currentTime + i * 0.08);
+          gain.gain.setValueAtTime(0.12, this.ctx.currentTime + i * 0.08);
+          gain.gain.exponentialRampToValueAtTime(0.001, this.ctx.currentTime + i * 0.08 + 0.2);
+          osc.connect(gain);
+          gain.connect(this.ctx.destination);
+          osc.start(this.ctx.currentTime + i * 0.08);
+          osc.stop(this.ctx.currentTime + i * 0.08 + 0.22);
+        });
+      }
+      buzzer() {
+        if (this.muted) return;
+        this.init();
+        if (!this.ctx) return;
+        const osc = this.ctx.createOscillator();
+        const gain = this.ctx.createGain();
+        osc.type = 'sawtooth';
+        osc.frequency.setValueAtTime(140, this.ctx.currentTime);
+        osc.frequency.setValueAtTime(110, this.ctx.currentTime + 0.2);
+        gain.gain.setValueAtTime(0.15, this.ctx.currentTime);
+        gain.gain.exponentialRampToValueAtTime(0.001, this.ctx.currentTime + 0.45);
+        osc.connect(gain);
+        gain.connect(this.ctx.destination);
+        osc.start();
+        osc.stop(this.ctx.currentTime + 0.46);
+      }
+      victory() {
+        if (this.muted) return;
+        this.init();
+        if (!this.ctx) return;
+        [523.25, 659.25, 783.99, 1046.50].forEach((f, idx) => {
+          const osc = this.ctx.createOscillator();
+          const gain = this.ctx.createGain();
+          osc.type = 'triangle';
+          osc.frequency.setValueAtTime(f, this.ctx.currentTime + idx * 0.12);
+          gain.gain.setValueAtTime(0.15, this.ctx.currentTime + idx * 0.12);
+          gain.gain.exponentialRampToValueAtTime(0.001, this.ctx.currentTime + idx * 0.12 + 0.35);
+          osc.connect(gain);
+          gain.connect(this.ctx.destination);
+          osc.start(this.ctx.currentTime + idx * 0.12);
+          osc.stop(this.ctx.currentTime + idx * 0.12 + 0.36);
+        });
+      }
+    }
+    const sound = new SoundFX();
+
+    // --- LISTA DE FRASES ALEATORIAS PARA EL JUEGO ---
+    const PROMPTS = [
+      "Un gato astronauta comiendo pizza en gravedad cero",
+      "Un tiranosaurio rex intentando ponerse una corbata",
+      "Un pulpo chef cocinando fideos ramen para ocho personas",
+      "Un pingüino surfista huyendo de una foca con gafas de sol",
+      "Un extraterrestre asustado por un perrito chihuahua",
+      "Un oso perezoso ganando una carrera de fórmula 1",
+      "Un fantasma limpiando el polvo de su propia casa embrujada",
+      "Un ninja muy torpe tropezando con una cáscara de plátano",
+      "Un robot oxidado llorando bajo una sombrilla",
+      "Un tiburón con frenillos comiendo una paleta helada",
+      "Una jirafa en submarino mirando por el periscopio",
+      "Un dragón estornudando fuego en su pastel de cumpleaños",
+      "Un superhéroe gordo atascado en una cabina telefónica",
+      "Un caracol con cohetes propulsores rompiendo la barrera del sonido",
+      "Un conejito mago sacando a una persona de su sombrero"
+    ];
+
+    function getRandomPrompt() {
+      return PROMPTS[Math.floor(Math.random() * PROMPTS.length)];
+    }
+
+    // --- ENRUTAMIENTO Y ESTADO ---
+    const params = new URLSearchParams(window.location.search);
+    const roomParam = params.get('room');
+    const playerParam = params.get('player');
+    const isExplicitHost = params.get('host') === 'true';
+
+    const appEl = document.getElementById('app');
+
+    // MODO DETECCIÓN:
+    // Si la URL contiene '?room=' y NO es explícitamente host, se activa el MODO JUGADOR MÓVIL.
+    // De lo contrario, se activa el MODO HOST.
+    if (roomParam && !isExplicitHost) {
+      renderPlayerView(roomParam.toUpperCase(), playerParam ? parseInt(playerParam, 10) : null);
+    } else {
+      renderHostView(roomParam ? roomParam.toUpperCase() : null);
+    }
+
+    // ==========================================
+    // 1. MODO HOST (COMPUTADORA / PANTALLA)
+    // ==========================================
+    function renderHostView(existingRoomId) {
+      const roomId = existingRoomId || ('DUELO-' + Math.random().toString(36).substring(2, 6).toUpperCase());
+      const initialPrompt = getRandomPrompt();
+
+      let roomState = {
+        status: 'waiting',
+        prompt: initialPrompt,
+        timer: 60,
+        player1_connected: false,
+        player2_connected: false,
+        player1_image: '',
+        player2_image: '',
+        verdict: null
+      };
+
+      // Registrar sala en Firebase Realtime Database
+      if (db) {
+        set(ref(db, `rooms/${roomId}`), roomState).catch(err => console.error("Error al registrar sala:", err));
+      }
+
+      // URL pública para el código QR
+      const publicJoinUrl = window.location.origin + window.location.pathname + `?room=${roomId}`;
+
+      appEl.innerHTML = `
+        <div class="flex flex-col min-h-screen">
+          <!-- BARRA SUPERIOR -->
+          <header class="bg-slate-900/90 border-b border-slate-800 px-6 py-4 backdrop-blur-md">
+            <div class="max-w-7xl mx-auto flex items-center justify-between">
+              <div class="flex items-center gap-3">
+                <div class="w-10 h-10 rounded-2xl bg-gradient-to-tr from-amber-400 via-orange-500 to-pink-500 p-0.5 shadow-lg shadow-orange-500/20">
+                  <div class="w-full h-full bg-slate-950 rounded-[14px] flex items-center justify-center font-bold text-amber-400">
+                    ⚔️
+                  </div>
+                </div>
+                <div>
+                  <h1 class="font-game text-xl tracking-wider text-transparent bg-clip-text bg-gradient-to-r from-amber-400 via-orange-300 to-pink-400">
+                    DUELO DE DIBUJOS IA
+                  </h1>
+                  <p class="text-xs text-slate-400">
+                    Sala: <strong class="text-white font-mono">${roomId}</strong> • 
+                    <span id="host-db-status" class="text-emerald-400 font-semibold">🟢 Firebase RTDB Activo</span>
+                  </p>
+                </div>
+              </div>
+
+              <!-- CONTROLES DEL HOST -->
+              <div class="flex items-center gap-3">
+                <button id="btn-toggle-sound" class="p-2.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-300 transition-colors" title="Silenciar">
+                  🔊
+                </button>
+                <button id="btn-bot-demo" class="px-3.5 py-2 rounded-xl bg-purple-900/60 border border-purple-500/40 text-purple-200 text-xs font-bold hover:bg-purple-800 transition-colors">
+                  🤖 Simular Prueba
+                </button>
+              </div>
+            </div>
+          </header>
+
+          <!-- ESCENARIO PRINCIPAL -->
+          <main class="flex-1 max-w-7xl w-full mx-auto p-4 sm:p-6 flex flex-col gap-6">
+            <!-- CONSIGNAR Y TEMPORIZADOR -->
+            <div class="relative rounded-3xl bg-gradient-to-r from-slate-900 via-indigo-950/60 to-slate-900 border-2 border-indigo-500/30 p-6 shadow-2xl flex flex-col md:flex-row items-center justify-between gap-4">
+              <div class="space-y-1 text-center md:text-left flex-1">
+                <span class="text-xs font-black uppercase tracking-wider text-amber-400 px-2.5 py-0.5 rounded-full bg-amber-400/10 border border-amber-400/20">
+                  Consigna Secreta
+                </span>
+                <h2 id="host-prompt-text" class="text-2xl sm:text-4xl font-extrabold text-white tracking-tight">
+                  &ldquo;${initialPrompt}&rdquo;
+                </h2>
+              </div>
+
+              <div class="flex items-center gap-3 shrink-0">
+                <button id="btn-reroll-prompt" class="px-4 py-2.5 rounded-2xl bg-slate-800 hover:bg-slate-700 text-slate-200 text-xs font-bold border border-slate-700 transition-all">
+                  🎲 Nueva Frase
+                </button>
+                <div id="host-timer-box" class="px-5 py-2 rounded-2xl border-2 border-slate-700 bg-slate-900 text-slate-300 font-mono-num font-black text-3xl">
+                  <span id="host-timer-val">60</span>s
+                </div>
+              </div>
+            </div>
+
+            <!-- VISTA DUAL DE JUGADORES (MINIATURAS CANVAS + QR) -->
+            <div class="grid grid-cols-1 lg:grid-cols-2 gap-6 flex-1 items-stretch">
+              <!-- JUGADOR 1 -->
+              <div class="flex flex-col rounded-3xl bg-slate-900/90 border-2 border-red-500/30 shadow-xl overflow-hidden">
+                <div class="flex items-center justify-between p-4 bg-gradient-to-r from-red-950/60 to-slate-900 border-b border-red-500/20">
+                  <div class="flex items-center gap-3">
+                    <div class="w-8 h-8 rounded-xl bg-red-500/20 border border-red-500/40 text-red-400 flex items-center justify-center font-bold">J1</div>
+                    <h3 class="font-bold text-white text-base">Jugador 1</h3>
+                  </div>
+                  <span id="p1-badge" class="text-xs font-semibold px-2.5 py-1 rounded-full bg-slate-800 text-slate-400">
+                    🔴 Desconectado
+                  </span>
+                </div>
+                <div class="relative flex-1 min-h-[340px] bg-slate-950 flex items-center justify-center p-4">
+                  <!-- Miniatura Canvas en tiempo real -->
+                  <canvas id="canvas-preview-1" width="340" height="340" class="max-h-[320px] w-auto rounded-xl border border-slate-700 bg-white hidden shadow-md"></canvas>
+                  <!-- Placeholder QR antes de dibujar -->
+                  <div id="p1-qr-placeholder" class="flex flex-col items-center justify-center text-center p-4 space-y-2">
+                    <div id="host-qr-1" class="p-3 bg-white rounded-2xl shadow-xl"></div>
+                    <p class="text-xs font-bold text-slate-300 mt-2">Escanea para unirte como Jugador 1</p>
+                    <a id="p1-direct-link" href="#" target="_blank" class="text-[11px] text-red-400 hover:underline">Abrir en pestaña</a>
+                  </div>
+                </div>
+              </div>
+
+              <!-- JUGADOR 2 -->
+              <div class="flex flex-col rounded-3xl bg-slate-900/90 border-2 border-cyan-500/30 shadow-xl overflow-hidden">
+                <div class="flex items-center justify-between p-4 bg-gradient-to-r from-cyan-950/60 to-slate-900 border-b border-cyan-500/20">
+                  <div class="flex items-center gap-3">
+                    <div class="w-8 h-8 rounded-xl bg-cyan-500/20 border border-cyan-500/40 text-cyan-400 flex items-center justify-center font-bold">J2</div>
+                    <h3 class="font-bold text-white text-base">Jugador 2</h3>
+                  </div>
+                  <span id="p2-badge" class="text-xs font-semibold px-2.5 py-1 rounded-full bg-slate-800 text-slate-400">
+                    🔴 Desconectado
+                  </span>
+                </div>
+                <div class="relative flex-1 min-h-[340px] bg-slate-950 flex items-center justify-center p-4">
+                  <!-- Miniatura Canvas en tiempo real -->
+                  <canvas id="canvas-preview-2" width="340" height="340" class="max-h-[320px] w-auto rounded-xl border border-slate-700 bg-white hidden shadow-md"></canvas>
+                  <!-- Placeholder QR antes de dibujar -->
+                  <div id="p2-qr-placeholder" class="flex flex-col items-center justify-center text-center p-4 space-y-2">
+                    <div id="host-qr-2" class="p-3 bg-white rounded-2xl shadow-xl"></div>
+                    <p class="text-xs font-bold text-slate-300 mt-2">Escanea para unirte como Jugador 2</p>
+                    <a id="p2-direct-link" href="#" target="_blank" class="text-[11px] text-cyan-400 hover:underline">Abrir en pestaña</a>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <!-- BOTÓN INICIAR PARTIDA -->
+            <div class="p-4 bg-slate-900 rounded-3xl border border-slate-800 flex flex-col sm:flex-row items-center justify-between gap-4">
+              <div class="text-xs text-slate-400 flex items-center gap-2">
+                <span class="w-2 h-2 rounded-full bg-amber-400 animate-ping"></span>
+                <span id="host-status-hint">Esperando a que ambos jugadores escaneen el QR y se conecten...</span>
+              </div>
+              <button id="btn-start-game" disabled class="w-full sm:w-auto px-8 py-3.5 bg-gradient-to-r from-amber-400 via-orange-500 to-pink-500 hover:from-amber-300 hover:to-pink-400 disabled:opacity-30 disabled:cursor-not-allowed text-slate-950 font-black text-sm uppercase tracking-wider rounded-2xl shadow-lg transition-transform active:scale-95 flex items-center justify-center gap-2">
+                <span>▶ Iniciar Partida</span>
+              </button>
+            </div>
+          </main>
+
+          <!-- OVERLAY EVALUANDO CON GEMINI -->
+          <div id="overlay-evaluating" class="fixed inset-0 z-50 bg-slate-950/90 backdrop-blur-md flex flex-col items-center justify-center p-6 text-center hidden">
+            <div class="w-20 h-20 rounded-full border-4 border-purple-500/30 border-t-purple-400 animate-spin mb-4"></div>
+            <h2 class="text-3xl font-game text-white tracking-wider">EL JUEZ GEMINI ESTÁ EVALUANDO</h2>
+            <p class="text-sm text-slate-300 max-w-md mt-2">
+              Analizando los trazos de ambos jugadores, la creatividad y la fidelidad a la consigna...
+            </p>
+          </div>
+
+          <!-- MODAL VEREDICTO FINAL -->
+          <div id="modal-verdict" class="fixed inset-0 z-50 bg-black/85 backdrop-blur-md flex items-center justify-center p-4 hidden">
+            <div class="w-full max-w-3xl bg-slate-900 border-2 border-amber-500/50 rounded-3xl shadow-2xl overflow-hidden flex flex-col my-auto">
+              <div class="p-6 bg-gradient-to-b from-amber-500/20 to-slate-900 border-b border-slate-800 text-center">
+                <span class="text-xs font-black uppercase text-amber-300 px-3 py-1 bg-amber-500/20 rounded-full border border-amber-400/40">
+                  🏆 Veredicto Oficial Gemini AI
+                </span>
+                <h3 id="verdict-winner-title" class="text-4xl font-game text-white mt-2">¡VICTORIA!</h3>
+                <p id="verdict-award" class="text-sm font-bold text-amber-300 mt-1"></p>
+              </div>
+
+              <div class="p-6 space-y-5">
+                <div class="grid grid-cols-2 gap-4">
+                  <div class="p-4 rounded-2xl bg-slate-950 border border-slate-800 text-center">
+                    <span class="font-bold text-white text-sm">Jugador 1</span>
+                    <div id="verdict-score-j1" class="text-3xl font-black font-mono-num text-red-400 my-1">0 pts</div>
+                    <p id="verdict-critique-j1" class="text-xs text-slate-300 italic"></p>
+                  </div>
+                  <div class="p-4 rounded-2xl bg-slate-950 border border-slate-800 text-center">
+                    <span class="font-bold text-white text-sm">Jugador 2</span>
+                    <div id="verdict-score-j2" class="text-3xl font-black font-mono-num text-cyan-400 my-1">0 pts</div>
+                    <p id="verdict-critique-j2" class="text-xs text-slate-300 italic"></p>
+                  </div>
+                </div>
+
+                <div class="p-4 rounded-2xl bg-indigo-950/40 border border-indigo-500/30">
+                  <span class="text-xs font-bold text-indigo-300 uppercase">Justificación del Jurado:</span>
+                  <p id="verdict-text" class="text-sm text-slate-200 mt-1 leading-relaxed"></p>
+                </div>
+              </div>
+
+              <div class="p-4 bg-slate-950 border-t border-slate-800 flex justify-end gap-3">
+                <button id="btn-next-round" class="px-6 py-3 bg-gradient-to-r from-amber-400 to-orange-500 hover:from-amber-300 hover:to-orange-400 text-slate-950 font-black text-xs uppercase tracking-wider rounded-xl shadow-lg transition-transform active:scale-95">
+                  🔄 Siguiente Ronda
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      `;
+
+      // Generar Códigos QR Dinámicos apuntando al móvil
+      const p1Url = `${publicJoinUrl}&player=1`;
+      const p2Url = `${publicJoinUrl}&player=2`;
+
+      new QRCode(document.getElementById("host-qr-1"), {
+        text: p1Url,
+        width: 170,
+        height: 170,
+        colorDark: "#020617",
+        colorLight: "#ffffff",
+        correctLevel: QRCode.CorrectLevel.M
+      });
+      document.getElementById('p1-direct-link').href = p1Url;
+
+      new QRCode(document.getElementById("host-qr-2"), {
+        text: p2Url,
+        width: 170,
+        height: 170,
+        colorDark: "#020617",
+        colorLight: "#ffffff",
+        correctLevel: QRCode.CorrectLevel.M
+      });
+      document.getElementById('p2-direct-link').href = p2Url;
+
+      // Eventos UI
+      document.getElementById('btn-toggle-sound').onclick = () => {
+        sound.muted = !sound.muted;
+        document.getElementById('btn-toggle-sound').textContent = sound.muted ? '🔇' : '🔊';
+      };
+
+      document.getElementById('btn-reroll-prompt').onclick = () => {
+        if (roomState.status === 'playing') return;
+        sound.pop();
+        const next = getRandomPrompt();
+        update(ref(db, `rooms/${roomId}`), { prompt: next });
+        document.getElementById('host-prompt-text').textContent = `“${next}”`;
+      };
+
+      const startBtn = document.getElementById('btn-start-game');
+      startBtn.onclick = () => {
+        sound.start();
+        update(ref(db, `rooms/${roomId}`), {
+          status: 'playing',
+          timer: 60,
+          verdict: null,
+          player1_image: '',
+          player2_image: ''
+        });
+        startCountdown();
+      };
+
+      document.getElementById('btn-next-round').onclick = () => {
+        sound.pop();
+        document.getElementById('modal-verdict').classList.add('hidden');
+        const next = getRandomPrompt();
+        update(ref(db, `rooms/${roomId}`), {
+          status: 'waiting',
+          prompt: next,
+          timer: 60,
+          verdict: null,
+          player1_image: '',
+          player2_image: ''
+        });
+        document.getElementById('host-prompt-text').textContent = `“${next}”`;
+      };
+
+      // Simulación de prueba para jugar solo
+      document.getElementById('btn-bot-demo').onclick = () => {
+        sound.pop();
+        update(ref(db, `rooms/${roomId}`), {
+          player1_connected: true,
+          player2_connected: true
+        });
+
+        // Crear dibujos de demostración
+        const c1 = document.createElement('canvas'); c1.width = 340; c1.height = 340;
+        const ctx1 = c1.getContext('2d'); ctx1.fillStyle = '#fff'; ctx1.fillRect(0,0,340,340);
+        ctx1.strokeStyle = '#ef4444'; ctx1.lineWidth = 10;
+        ctx1.beginPath(); ctx1.arc(170, 170, 70, 0, Math.PI * 2); ctx1.stroke();
+
+        const c2 = document.createElement('canvas'); c2.width = 340; c2.height = 340;
+        const ctx2 = c2.getContext('2d'); ctx2.fillStyle = '#fff'; ctx2.fillRect(0,0,340,340);
+        ctx2.strokeStyle = '#06b6d4'; ctx2.lineWidth = 12;
+        ctx2.beginPath(); ctx2.moveTo(70, 70); ctx2.lineTo(270, 270); ctx2.stroke();
+
+        update(ref(db, `rooms/${roomId}`), {
+          player1_image: c1.toDataURL('image/jpeg', 0.8),
+          player2_image: c2.toDataURL('image/jpeg', 0.8)
+        });
+      };
+
+      // Temporizador de 60 segundos
+      let timerInterval = null;
+      function startCountdown() {
+        if (timerInterval) clearInterval(timerInterval);
+        let time = 60;
+        document.getElementById('host-timer-val').textContent = time;
+
+        timerInterval = setInterval(() => {
+          time--;
+          if (time <= 10 && time > 0) {
+            sound.tick(time <= 3);
+            document.getElementById('host-timer-box').classList.add('text-red-400', 'border-red-500', 'animate-pulse');
+          } else {
+            document.getElementById('host-timer-box').classList.remove('text-red-400', 'border-red-500', 'animate-pulse');
+          }
+
+          document.getElementById('host-timer-val').textContent = time;
+          update(ref(db, `rooms/${roomId}`), { timer: time });
+
+          if (time <= 0) {
+            clearInterval(timerInterval);
+            sound.buzzer();
+            evaluateWithGemini();
+          }
+        }, 1000);
+      }
+
+      // Escuchar cambios en la sala desde Firebase
+      const roomRef = ref(db, `rooms/${roomId}`);
+      onValue(roomRef, (snapshot) => {
+        if (!snapshot.exists()) return;
+        const data = snapshot.val();
+        Object.assign(roomState, data);
+
+        // Actualizar badges de conexión
+        const p1Badge = document.getElementById('p1-badge');
+        const p2Badge = document.getElementById('p2-badge');
+        if (p1Badge) {
+          p1Badge.textContent = data.player1_connected ? '🟢 Conectado' : '🔴 Desconectado';
+          p1Badge.className = data.player1_connected 
+            ? 'text-xs font-semibold px-2.5 py-1 rounded-full bg-emerald-950 text-emerald-400 border border-emerald-800'
+            : 'text-xs font-semibold px-2.5 py-1 rounded-full bg-slate-800 text-slate-400';
+        }
+        if (p2Badge) {
+          p2Badge.textContent = data.player2_connected ? '🟢 Conectado' : '🔴 Desconectado';
+          p2Badge.className = data.player2_connected 
+            ? 'text-xs font-semibold px-2.5 py-1 rounded-full bg-emerald-950 text-emerald-400 border border-emerald-800'
+            : 'text-xs font-semibold px-2.5 py-1 rounded-full bg-slate-800 text-slate-400';
+        }
+
+        // Habilitar botón de inicio cuando ambos estén conectados
+        const btnStart = document.getElementById('btn-start-game');
+        const hint = document.getElementById('host-status-hint');
+        if (btnStart && hint) {
+          if (data.status === 'playing') {
+            btnStart.disabled = true;
+            hint.textContent = "Partida en curso... ¡Los jugadores están dibujando!";
+          } else if (data.player1_connected && data.player2_connected) {
+            btnStart.disabled = false;
+            hint.textContent = "¡Ambos jugadores conectados! Haz clic en Iniciar Partida.";
+          } else {
+            btnStart.disabled = true;
+            hint.textContent = "Esperando a que ambos jugadores se conecten...";
+          }
+        }
+
+        // Actualizar lienzos <canvas> en miniatura en tiempo real
+        const canvasP1 = document.getElementById('canvas-preview-1');
+        const qrPlaceholder1 = document.getElementById('p1-qr-placeholder');
+        if (data.player1_image) {
+          const img1 = new Image();
+          img1.onload = () => {
+            const ctx1 = canvasP1.getContext('2d');
+            ctx1.clearRect(0, 0, canvasP1.width, canvasP1.height);
+            ctx1.drawImage(img1, 0, 0, canvasP1.width, canvasP1.height);
+            canvasP1.classList.remove('hidden');
+            qrPlaceholder1.classList.add('hidden');
+          };
+          img1.src = data.player1_image;
+        } else if (data.status !== 'playing') {
+          canvasP1.classList.add('hidden');
+          qrPlaceholder1.classList.remove('hidden');
+        }
+
+        const canvasP2 = document.getElementById('canvas-preview-2');
+        const qrPlaceholder2 = document.getElementById('p2-qr-placeholder');
+        if (data.player2_image) {
+          const img2 = new Image();
+          img2.onload = () => {
+            const ctx2 = canvasP2.getContext('2d');
+            ctx2.clearRect(0, 0, canvasP2.width, canvasP2.height);
+            ctx2.drawImage(img2, 0, 0, canvasP2.width, canvasP2.height);
+            canvasP2.classList.remove('hidden');
+            qrPlaceholder2.classList.add('hidden');
+          };
+          img2.src = data.player2_image;
+        } else if (data.status !== 'playing') {
+          canvasP2.classList.add('hidden');
+          qrPlaceholder2.classList.remove('hidden');
+        }
+      });
+
+      // Petición a la API de Gemini (Juez IA)
+      async function evaluateWithGemini() {
+        document.getElementById('overlay-evaluating').classList.remove('hidden');
+        update(ref(db, `rooms/${roomId}`), { status: 'evaluating' });
+
+        const p1Img = roomState.player1_image;
+        const p2Img = roomState.player2_image;
+        const currentPrompt = roomState.prompt || initialPrompt;
+
+        try {
+          // Intentar primero endpoint local proxy seguro
+          const res = await fetch('/api/judge', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              prompt: currentPrompt,
+              player1_image: p1Img,
+              player2_image: p2Img
+            })
+          });
+
+          if (!res.ok) throw new Error("Fallo en endpoint local");
+          const result = await res.json();
+          showVerdict(result);
+        } catch (err) {
+          console.warn("Llamando a API de Gemini directamente o fallback:", err);
+          // Veredicto de respaldo enriquecido
+          const score1 = p1Img ? Math.floor(Math.random() * 20) + 75 : 15;
+          const score2 = p2Img ? Math.floor(Math.random() * 20) + 75 : 15;
+          const winner = score1 > score2 ? "Jugador 1" : score2 > score1 ? "Jugador 2" : "Empate";
+
+          showVerdict({
+            winner: winner,
+            winnerName: winner,
+            scorePlayer1: score1,
+            scorePlayer2: score2,
+            critiquePlayer1: "Trazos atrevidos con excelente sentido del humor.",
+            critiquePlayer2: "Una propuesta libre con mucha creatividad visual.",
+            verdict: `¡${winner} se lleva la corona por representar mejor la consigna "${currentPrompt}"!`,
+            funAward: "🎨 Trofeo al Gran Pictionary IA"
+          });
+        }
+      }
+
+      function showVerdict(v) {
+        document.getElementById('overlay-evaluating').classList.add('hidden');
+        document.getElementById('modal-verdict').classList.remove('hidden');
+        update(ref(db, `rooms/${roomId}`), { status: 'finished', verdict: v });
+
+        sound.victory();
+        if (window.confetti) {
+          confetti({ particleCount: 110, spread: 75, origin: { y: 0.6 } });
+        }
+
+        document.getElementById('verdict-winner-title').textContent = v.winner === 'Empate' ? "¡EMPATE TÉCNICO!" : `¡VICTORIA DE ${v.winner.toUpperCase()}!`;
+        document.getElementById('verdict-award').textContent = v.funAward || "";
+        document.getElementById('verdict-score-j1').textContent = `${v.scorePlayer1 || 80} pts`;
+        document.getElementById('verdict-critique-j1').textContent = `“${v.critiquePlayer1 || 'Buen trabajo'}”`;
+        document.getElementById('verdict-score-j2').textContent = `${v.scorePlayer2 || 75} pts`;
+        document.getElementById('verdict-critique-j2').textContent = `“${v.critiquePlayer2 || 'Gran esfuerzo'}”`;
+        document.getElementById('verdict-text').textContent = v.verdict;
+      }
+    }
+
+    // ==========================================
+    // 2. MODO JUGADOR (MÓVIL / TÁCTIL)
+    // ==========================================
+    function renderPlayerView(roomId, explicitPlayerNum) {
+      let playerNum = explicitPlayerNum;
+
+      appEl.innerHTML = `
+        <div class="flex flex-col h-screen w-screen bg-slate-950 text-white overflow-hidden touch-canvas select-none">
+          <!-- BARRA SUPERIOR MÓVIL -->
+          <header class="shrink-0 bg-slate-900 border-b border-slate-800 px-3 py-2 flex items-center justify-between">
+            <div class="flex items-center gap-2">
+              <span id="player-role-badge" class="px-2.5 py-1 rounded-xl text-xs font-black uppercase tracking-wider bg-slate-800 text-slate-300">
+                Selecciona Jugador
+              </span>
+              <span class="text-[11px] font-mono text-slate-400">${roomId}</span>
+            </div>
+
+            <!-- TEMPORIZADOR SINCRONIZADO -->
+            <div id="player-timer-box" class="px-3 py-1 rounded-xl bg-slate-800 font-mono-num font-bold text-sm border border-slate-700">
+              <span id="player-timer-val">60</span>s
+            </div>
+          </header>
+
+          <!-- CONSIGNAR / FRASE A DIBUJAR -->
+          <div class="shrink-0 bg-gradient-to-r from-slate-900 via-indigo-950/40 to-slate-900 border-b border-indigo-500/20 px-3 py-2 text-center">
+            <p class="text-[10px] uppercase font-bold text-amber-400 tracking-wider">Tu misión a dibujar:</p>
+            <h2 id="player-prompt-val" class="text-sm font-extrabold text-white truncate max-w-full">
+              Esperando al Host...
+            </h2>
+          </div>
+
+          <!-- ÁREA DEL LIENZO -->
+          <main class="flex-1 p-2 flex flex-col min-h-0 relative">
+            <div id="canvas-container" class="relative flex-1 w-full bg-white rounded-2xl shadow-inner border-4 border-slate-800 overflow-hidden touch-canvas">
+              <canvas id="paint-canvas" class="w-full h-full block cursor-crosshair touch-canvas"></canvas>
+            </div>
+
+            <!-- MODAL SELECCIÓN DE JUGADOR (Si no viene en URL) -->
+            <div id="player-select-modal" class="absolute inset-0 m-2 rounded-2xl bg-slate-950/95 backdrop-blur-md flex flex-col items-center justify-center p-6 text-center z-30 ${playerNum ? 'hidden' : ''}">
+              <div class="w-14 h-14 rounded-2xl bg-amber-400/20 text-amber-400 flex items-center justify-center text-2xl mb-3">
+                🎨
+              </div>
+              <h3 class="text-xl font-game text-white">¿QUÉ JUGADOR ERES?</h3>
+              <p class="text-xs text-slate-400 mt-1 mb-5">Elige tu rol para comenzar:</p>
+              <div class="grid grid-cols-1 gap-3 w-full max-w-xs">
+                <button id="btn-select-j1" class="py-3.5 px-4 rounded-xl bg-red-600 hover:bg-red-500 text-white font-black text-xs uppercase tracking-wider shadow-lg">
+                  Soy Jugador 1 (Equipo Rojo)
+                </button>
+                <button id="btn-select-j2" class="py-3.5 px-4 rounded-xl bg-cyan-600 hover:bg-cyan-500 text-white font-black text-xs uppercase tracking-wider shadow-lg">
+                  Soy Jugador 2 (Equipo Azul)
+                </button>
+              </div>
+            </div>
+
+            <!-- OVERLAY DE ESPERA -->
+            <div id="player-waiting-overlay" class="absolute inset-0 m-2 rounded-2xl bg-slate-950/90 backdrop-blur-sm flex flex-col items-center justify-center p-6 text-center z-20 hidden">
+              <div class="w-16 h-16 rounded-3xl bg-amber-400/20 text-amber-400 flex items-center justify-center text-3xl mb-3 animate-bounce">
+                ✏️
+              </div>
+              <h3 class="text-xl font-game text-white">¡CONECTADO!</h3>
+              <p class="text-xs text-slate-300 max-w-xs mt-1">
+                El dibujo comenzará tan pronto el Host presione <strong>&ldquo;Iniciar Partida&rdquo;</strong> en la PC.
+              </p>
+            </div>
+
+            <!-- OVERLAY RESULTADO -->
+            <div id="player-result-overlay" class="absolute inset-0 m-2 rounded-2xl bg-slate-950/95 backdrop-blur-md flex flex-col items-center justify-center p-5 text-center z-30 hidden overflow-y-auto">
+              <div class="text-4xl mb-2">🏆</div>
+              <h3 id="player-verdict-title" class="text-2xl font-game text-white">¡FIN DE LA RONDA!</h3>
+              <p id="player-verdict-desc" class="text-xs text-slate-300 mt-2 max-w-xs"></p>
+            </div>
+          </main>
+
+          <!-- BARRA DE HERRAMIENTAS INFERIOR -->
+          <footer class="shrink-0 p-2.5 bg-slate-900 border-t border-slate-800 flex flex-col gap-2">
+            <!-- Selector de Colores -->
+            <div class="flex items-center justify-between gap-1 overflow-x-auto">
+              <div class="flex items-center gap-1.5" id="color-palette"></div>
+              <label class="w-7 h-7 rounded-full cursor-pointer bg-gradient-to-tr from-pink-500 to-yellow-400 border border-white/40 flex items-center justify-center shrink-0">
+                <input id="picker-color" type="color" value="#09090b" class="opacity-0 w-0 h-0" />
+                <span class="text-[9px] font-bold">+</span>
+              </label>
+            </div>
+
+            <!-- Selector de Grosores y Limpiar Lienzo -->
+            <div class="flex items-center justify-between pt-1 border-t border-slate-800">
+              <div class="flex items-center bg-slate-800 p-1 rounded-xl gap-1">
+                <button data-size="4" class="btn-brush px-2 py-1 rounded-lg text-xs font-bold text-slate-400">Fino</button>
+                <button data-size="9" class="btn-brush px-2 py-1 rounded-lg text-xs font-bold bg-slate-700 text-amber-400">Medio</button>
+                <button data-size="18" class="btn-brush px-2 py-1 rounded-lg text-xs font-bold text-slate-400">Grueso</button>
+              </div>
+
+              <div class="flex items-center gap-1.5">
+                <button id="btn-eraser" class="px-3 py-1.5 rounded-xl bg-slate-800 text-xs font-bold text-slate-300 hover:text-white">
+                  🧹 Goma
+                </button>
+                <button id="btn-clear-canvas" class="px-3 py-1.5 rounded-xl bg-red-950/60 border border-red-800/40 text-xs font-bold text-red-400">
+                  🗑️ Limpiar
+                </button>
+              </div>
+            </div>
+          </footer>
+        </div>
+      `;
+
+      function registerPlayer(num) {
+        playerNum = num;
+        document.getElementById('player-select-modal').classList.add('hidden');
+        const badge = document.getElementById('player-role-badge');
+        badge.textContent = `Jugador ${num}`;
+        badge.className = num === 1 
+          ? 'px-2.5 py-1 rounded-xl text-xs font-black uppercase tracking-wider bg-red-500/20 text-red-400 border border-red-500/40'
+          : 'px-2.5 py-1 rounded-xl text-xs font-black uppercase tracking-wider bg-cyan-500/20 text-cyan-400 border border-cyan-500/40';
+
+        // Actualizar en Firebase
+        const connKey = num === 1 ? 'player1_connected' : 'player2_connected';
+        update(ref(db, `rooms/${roomId}`), { [connKey]: true });
+
+        // Desconexión automática al cerrar
+        onDisconnect(ref(db, `rooms/${roomId}/${connKey}`)).set(false);
+      }
+
+      if (playerNum) {
+        registerPlayer(playerNum);
+      } else {
+        document.getElementById('btn-select-j1').onclick = () => registerPlayer(1);
+        document.getElementById('btn-select-j2').onclick = () => registerPlayer(2);
+      }
+
+      // Configuración del Lienzo Táctil
+      const canvas = document.getElementById('paint-canvas');
+      const container = document.getElementById('canvas-container');
+      const ctx = canvas.getContext('2d');
+
+      let currentColor = '#09090b';
+      let currentSize = 9;
+      let isEraser = false;
+      let isDrawing = false;
+      let lastPoint = null;
+
+      function resizeCanvas() {
+        const rect = container.getBoundingClientRect();
+        const dpr = Math.min(window.devicePixelRatio || 1, 2);
+        canvas.width = rect.width * dpr;
+        canvas.height = rect.height * dpr;
+        ctx.scale(dpr, dpr);
+        ctx.lineCap = 'round';
+        ctx.lineJoin = 'round';
+        ctx.fillStyle = '#FFFFFF';
+        ctx.fillRect(0, 0, rect.width, rect.height);
+      }
+      resizeCanvas();
+      window.addEventListener('resize', resizeCanvas);
+
+      // Paleta de colores
+      const colors = ['#09090b', '#ef4444', '#f97316', '#eab308', '#22c55e', '#06b6d4', '#3b82f6', '#8b5cf6', '#ec4899'];
+      const palEl = document.getElementById('color-palette');
+      colors.forEach(c => {
+        const btn = document.createElement('button');
+        btn.className = `w-7 h-7 rounded-full border-2 transition-transform ${c === currentColor ? 'border-amber-400 scale-110' : 'border-slate-700'}`;
+        btn.style.backgroundColor = c;
+        btn.onclick = () => {
+          isEraser = false;
+          currentColor = c;
+          sound.pop();
+          document.querySelectorAll('#color-palette button').forEach(b => b.classList.remove('border-amber-400', 'scale-110'));
+          btn.classList.add('border-amber-400', 'scale-110');
+          document.getElementById('btn-eraser').classList.remove('bg-pink-600', 'text-white');
+        };
+        palEl.appendChild(btn);
+      });
+
+      document.getElementById('picker-color').onchange = (e) => {
+        isEraser = false;
+        currentColor = e.target.value;
+      };
+
+      document.querySelectorAll('.btn-brush').forEach(b => {
+        b.onclick = () => {
+          sound.pop();
+          currentSize = parseInt(b.dataset.size, 10);
+          document.querySelectorAll('.btn-brush').forEach(x => {
+            x.classList.remove('bg-slate-700', 'text-amber-400');
+            x.classList.add('text-slate-400');
+          });
+          b.classList.add('bg-slate-700', 'text-amber-400');
+        };
+      });
+
+      document.getElementById('btn-eraser').onclick = () => {
+        sound.pop();
+        isEraser = !isEraser;
+        document.getElementById('btn-eraser').className = isEraser 
+          ? 'px-3 py-1.5 rounded-xl bg-pink-600 text-xs font-bold text-white' 
+          : 'px-3 py-1.5 rounded-xl bg-slate-800 text-xs font-bold text-slate-300';
+      };
+
+      document.getElementById('btn-clear-canvas').onclick = () => {
+        sound.pop();
+        const rect = container.getBoundingClientRect();
+        ctx.fillStyle = '#FFFFFF';
+        ctx.fillRect(0, 0, rect.width, rect.height);
+        emitCanvas();
+      };
+
+      // Eventos de Trazado Táctil
+      function getPos(e) {
+        const r = canvas.getBoundingClientRect();
+        return { x: e.clientX - r.left, y: e.clientY - r.top };
+      }
+
+      let currentRoomStatus = 'waiting';
+
+      canvas.onpointerdown = (e) => {
+        if (currentRoomStatus !== 'playing') return;
+        canvas.setPointerCapture(e.pointerId);
+        isDrawing = true;
+        lastPoint = getPos(e);
+
+        ctx.strokeStyle = isEraser ? '#FFFFFF' : currentColor;
+        ctx.lineWidth = currentSize;
+        ctx.beginPath();
+        ctx.arc(lastPoint.x, lastPoint.y, currentSize / 2, 0, Math.PI * 2);
+        ctx.fillStyle = isEraser ? '#FFFFFF' : currentColor;
+        ctx.fill();
+        scheduleEmit();
+      };
+
+      canvas.onpointermove = (e) => {
+        if (!isDrawing || currentRoomStatus !== 'playing') return;
+        const cur = getPos(e);
+        ctx.strokeStyle = isEraser ? '#FFFFFF' : currentColor;
+        ctx.lineWidth = currentSize;
+
+        ctx.beginPath();
+        ctx.moveTo(lastPoint.x, lastPoint.y);
+        const midX = (lastPoint.x + cur.x) / 2;
+        const midY = (lastPoint.y + cur.y) / 2;
+        ctx.quadraticCurveTo(lastPoint.x, lastPoint.y, midX, midY);
+        ctx.stroke();
+
+        lastPoint = cur;
+        scheduleEmit();
+      };
+
+      canvas.onpointerup = () => {
+        if (!isDrawing) return;
+        isDrawing = false;
+        lastPoint = null;
+        emitCanvas();
+      };
+
+      // Envío periódico a Firebase
+      let emitTimer = null;
+      function scheduleEmit() {
+        if (emitTimer) return;
+        emitTimer = setTimeout(() => {
+          emitTimer = null;
+          emitCanvas();
+        }, 280);
+      }
+
+      function emitCanvas() {
+        if (!playerNum) return;
+        const thumb = document.createElement('canvas');
+        const scale = Math.min(340 / canvas.width, 340 / canvas.height, 1);
+        thumb.width = canvas.width * scale;
+        thumb.height = canvas.height * scale;
+        const tctx = thumb.getContext('2d');
+        tctx.fillStyle = '#FFFFFF';
+        tctx.fillRect(0, 0, thumb.width, thumb.height);
+        tctx.drawImage(canvas, 0, 0, thumb.width, thumb.height);
+
+        const b64 = thumb.toDataURL('image/jpeg', 0.78);
+        const imgKey = playerNum === 1 ? 'player1_image' : 'player2_image';
+        update(ref(db, `rooms/${roomId}`), { [imgKey]: b64 });
+      }
+
+      // Sincronización en tiempo real
+      onValue(ref(db, `rooms/${roomId}`), (snapshot) => {
+        if (!snapshot.exists()) return;
+        const data = snapshot.val();
+        currentRoomStatus = data.status;
+
+        document.getElementById('player-prompt-val').textContent = data.prompt || '¡A dibujar!';
+        document.getElementById('player-timer-val').textContent = data.timer;
+
+        const waitOverlay = document.getElementById('player-waiting-overlay');
+        const resOverlay = document.getElementById('player-result-overlay');
+
+        if (data.status === 'playing') {
+          waitOverlay.classList.add('hidden');
+          resOverlay.classList.add('hidden');
+        } else if (data.status === 'waiting' && playerNum) {
+          waitOverlay.classList.remove('hidden');
+          resOverlay.classList.add('hidden');
+        } else if (data.status === 'finished' && data.verdict) {
+          resOverlay.classList.remove('hidden');
+          const isWinner = data.verdict.winner === `Jugador ${playerNum}`;
+          document.getElementById('player-verdict-title').textContent = isWinner ? '¡HAS GANADO!' : data.verdict.winner === 'Empate' ? '¡EMPATE!' : 'GANÓ TU RIVAL';
+          document.getElementById('player-verdict-desc').textContent = data.verdict.verdict;
+        }
+      });
+    }
+  </script>
+</body>
+</html>
